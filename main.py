@@ -79,7 +79,7 @@ lb_score.grid(row=0, column=0)
 lb_tries.grid(row=1, column=0)
 
 # Load sprite sheet
-sprites = PImage.open(r"C:\Users\Faiz\Pictures\Camera Roll\colours.png")
+sprites = PImage.open(r"C:\Pictures\Camera Roll\colours.png")
 
 # Define indices for various sprites
 sprites_index = [(x, 10) for x in range(11)]
