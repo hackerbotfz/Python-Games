@@ -1,117 +1,141 @@
-from tkinter import *
-from PIL import Image as PImage, ImageTk
+"""Palette Pairs — tile memory game."""
+
+from __future__ import annotations
+
 import random
+import tkinter as tk
+from pathlib import Path
+from tkinter import Label, LabelFrame
 
-# Function to calculate coordinates for cropping images
-def calc(x1, y1):
-    return (x1*32, y1*32+8, (x1+1)*32, (y1+1)*32+8)
+from PIL import Image, ImageTk
 
-# Function to count occurrences of an item in the slot_index list
-def count(item):
-    global slot_index
-    tot = 0
-    for i in slot_index:
-        if i == item:
-            tot += 1
-    return tot
+TILE_SIZE = 32
+TILE_CROP_Y_OFFSET = 8
+GRID_COLUMNS = 8
+GRID_ROWS = 8
+PAIR_COUNT = 32
 
-# Function to handle the selection of a slot
-def select_slot(ind):
-    global slot_index, slot_but, isselected, cb_reswap, tk_slot_images, game_score, game_tries
-    global lb_tries, lb_score, lb_gameover, frame_score, matches_ind
+# (column, row) indices into the spritesheet for each tile type
+SPRITE_COORDS = (
+    [(x, 10) for x in range(11)]
+    + [(11, 7), (1, 11), (2, 11), (3, 11), (2, 3), (3, 3), (4, 3)]
+    + [(x, 4) for x in range(2, 10)]
+    + [(x, 3) for x in (7, 8, 10, 11)]
+    + [(x, 5) for x in (2, 4, 6)]
+)
 
-    # Return if the selected slot is already matched or being swapped
-    if ind in matches_ind or cb_reswap is not None or ind == isselected:
-        return
-    if isselected is None:
-        # First selection
-        isselected = ind
-        slot_but[ind].config(image = tk_slot_images[ind])
-    else:
-        # Second selection
-        slot_but[ind].config(image=tk_slot_images[ind])
-        game_tries += 1
-        lb_tries.config(text = f"Tries: {game_tries}")
-        if slot_index[ind] == slot_index[isselected]:
-            # Matching pair found
-            matches_ind.append(ind)
-            matches_ind.append(isselected)
-            game_score += 1
-            lb_score.config(text = f"Score: {game_score}")
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+SPRITESHEET_PATH = ASSETS_DIR / "colours.png"
 
-            # Check if all pairs are matched
-            if game_score == 32:
-                lb_gameover = Label(frame_score, text= "You Have Won!")
-                lb_gameover.grid(row=2, column=0)
-        if slot_index[ind] != slot_index[isselected]:
-            # Schedule a swap if the selected slots don't match
-            cb_reswap = root.after(200, lambda: reswap(ind))
+
+def crop_box(col: int, row: int) -> tuple[int, int, int, int]:
+    x0, y0 = col * TILE_SIZE, row * TILE_SIZE + TILE_CROP_Y_OFFSET
+    return (x0, y0, x0 + TILE_SIZE, y0 + TILE_SIZE)
+
+
+def build_deck() -> list[tuple[int, int]]:
+    deck: list[tuple[int, int]] = []
+    counts: dict[tuple[int, int], int] = {}
+
+    while len(deck) < PAIR_COUNT:
+        tile = random.choice(SPRITE_COORDS)
+        if counts.get(tile, 0) < 1:
+            deck.append(tile)
+            counts[tile] = counts.get(tile, 0) + 1
+
+    pairs = deck * 2
+    random.shuffle(pairs)
+    return pairs
+
+
+class PalettePairsGame:
+    def __init__(self, root: tk.Tk, spritesheet_path: Path = SPRITESHEET_PATH) -> None:
+        if not spritesheet_path.is_file():
+            raise FileNotFoundError(f"Spritesheet not found: {spritesheet_path}")
+
+        self.root = root
+        self.root.title("Palette Pairs")
+
+        self.spritesheet = Image.open(spritesheet_path)
+        self.grass_photo = ImageTk.PhotoImage(self.spritesheet.crop(crop_box(0, 1)))
+
+        self.deck = build_deck()
+        self.tile_photos = [
+            ImageTk.PhotoImage(self.spritesheet.crop(crop_box(c, r))) for c, r in self.deck
+        ]
+
+        self.matched: set[int] = set()
+        self.first_pick: int | None = None
+        self.reswap_job: str | None = None
+        self.score = 0
+        self.tries = 0
+
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        board = LabelFrame(self.root)
+        board.grid(row=0, column=0, padx=8, pady=8)
+
+        hud = LabelFrame(self.root)
+        hud.grid(row=1, column=0, padx=8, pady=(0, 8))
+
+        self.score_label = Label(hud, text="Score: 0")
+        self.tries_label = Label(hud, text="Tries: 0")
+        self.score_label.grid(row=0, column=0, padx=12, pady=4)
+        self.tries_label.grid(row=1, column=0, padx=12, pady=4)
+        self.win_label: Label | None = None
+
+        self.buttons: list[tk.Button] = []
+        for index in range(GRID_COLUMNS * GRID_ROWS):
+            button = tk.Button(
+                board,
+                image=self.grass_photo,
+                command=lambda i=index: self.on_tile_click(i),
+            )
+            button.grid(row=index // GRID_COLUMNS, column=index % GRID_COLUMNS)
+            self.buttons.append(button)
+
+    def on_tile_click(self, index: int) -> None:
+        if (
+            index in self.matched
+            or self.reswap_job is not None
+            or index == self.first_pick
+        ):
+            return
+
+        self.buttons[index].config(image=self.tile_photos[index])
+
+        if self.first_pick is None:
+            self.first_pick = index
+            return
+
+        self.tries += 1
+        self.tries_label.config(text=f"Tries: {self.tries}")
+
+        first = self.first_pick
+        if self.deck[index] == self.deck[first]:
+            self.matched.update({index, first})
+            self.score += 1
+            self.score_label.config(text=f"Score: {self.score}")
+            if self.score == PAIR_COUNT and self.win_label is None:
+                self.win_label = Label(self.score_label.master, text="You win!")
+                self.win_label.grid(row=2, column=0, pady=4)
+            self.first_pick = None
         else:
-            # Reset selection if the slots match
-            isselected = None
+            self.reswap_job = self.root.after(200, lambda: self.hide_pair(index, first))
+
+    def hide_pair(self, second: int, first: int) -> None:
+        self.reswap_job = None
+        self.buttons[second].config(image=self.grass_photo)
+        self.buttons[first].config(image=self.grass_photo)
+        self.first_pick = None
 
 
-# Function to swap unmatched slots back to grass after a delay
-def reswap(ind):
-    global cb_reswap, isselected, slot_but
-    cb_reswap = None
-    slot_but[ind].config(image = tk_grass)
-    slot_but[isselected].config(image = tk_grass)
-    isselected = None
-
-# Initialize variables and UI
-matches_ind = []
-game_score = 0
-game_tries = 0
-isselected = None
-cb_reswap = None
-
-root = Tk()
-
-frame_game = LabelFrame(root)
-frame_game.grid(row=0, column=0)
-frame_score = LabelFrame(root)
-frame_score.grid(row=1, column=0)
-
-lb_score = Label(frame_score, text = f"Score: {game_score}")
-lb_tries = Label(frame_score, text = f"Tries: {game_tries}")
-lb_score.grid(row=0, column=0)
-lb_tries.grid(row=1, column=0)
-
-# Load sprite sheet
-sprites = PImage.open(r"C:\Pictures\Camera Roll\colours.png")
-
-# Define indices for various sprites
-sprites_index = [(x, 10) for x in range(11)]
-sprites_index += [(11, 7), (1,11), (2,11), (3,11), (2,3), (3,3), (4,3)] + [(x, 4) for x in range(2,10)]
-sprites_index += [(x, 3) for x in [7, 8, 10, 11]] + [(x, 5) for x in [2, 4, 6]]
-
-# Crop grass sprite and create Tkinter PhotoImage
-sp_grass = sprites.crop(calc(0,1))
-tk_grass = ImageTk.PhotoImage(sp_grass)
-
-# Initialize slot_index with randomly shuffled sprite indices
-slot_index = []
-while len(slot_index) < 32:
-    slot_item = random.choice(sprites_index)
-    if count(slot_item) < 2:
-        slot_index.append((slot_item))
-slot_index *= 2
-random.shuffle(slot_index)
-
-sp_slot_images = []
-tk_slot_images = []
-
-# Create sprite images for each slot
-for index in slot_index:
-    sp_slot_images.append(sprites.crop(calc(index[0], index[1])))
-for sp_slot_image in sp_slot_images:
-    tk_slot_images.append(ImageTk.PhotoImage(sp_slot_image))
+def main() -> None:
+    root = tk.Tk()
+    PalettePairsGame(root)
+    root.mainloop()
 
 
-# Create buttons for the game grid
-slot_but = []
-for i in range(64):
-    slot_but.append(Button(frame_game, image= tk_grass, command= lambda x=i: select_slot(x)))
-    slot_but[i].grid(row=i//8, column = i%8)
-root.mainloop()
+if __name__ == "__main__":
+    main()
