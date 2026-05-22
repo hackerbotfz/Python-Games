@@ -39,7 +39,7 @@
 | **Feedback** | Live score and try counter; win banner at completion |
 | **Assets** | Sprites cropped from `assets/colours.png` |
 
-Click a tile to reveal it; click a second to check for a match. Wrong pairs flip back after a short delay.
+Each hidden tile covers a distinct colour swatch from `colours.png`. At the start, every tile is revealed briefly so you can memorise the board. Match all 32 pairs with clear stats: pairs found, moves, accuracy, timer, and progress bar.
 
 ## Architecture
 
