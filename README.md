@@ -2,11 +2,11 @@
 
 # Palette Pairs
 
-### Memory match game with pixel-art tiles
+### Memory match game with pastel geometric symbols
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Tkinter](https://img.shields.io/badge/Tkinter-desktop%20UI-2d3748?style=for-the-badge)]()
-[![Pillow](https://img.shields.io/badge/Pillow-spritesheet-FFE873?style=for-the-badge)](https://python-pillow.org/)
+[![Pillow](https://img.shields.io/badge/Pillow-procedural%20tiles-FFE873?style=for-the-badge)](https://python-pillow.org/)
 
 <br/>
 
@@ -28,25 +28,24 @@
 
 ---
 
-**Palette Pairs** is a desktop memory game: flip tiles on an 8×8 board, find matching pixel-art sprites, and clear all 32 pairs in as few tries as possible. Built with **Python**, **Tkinter**, and a single spritesheet asset.
+**Palette Pairs** is a desktop memory game: flip tiles on an 8×8 board, find matching pastel symbols, and clear all 32 pairs in as few tries as possible. Built with **Python**, **Tkinter**, and **Pillow** — tiles are drawn at runtime (no image assets required).
 
 ## Overview
 
 | Detail | Value |
 |--------|--------|
 | **Board** | 64 hidden tiles (8×8) |
-| **Goal** | Match all 32 sprite pairs |
-| **Feedback** | Live score and try counter; win banner at completion |
-| **Assets** | Sprites cropped from `assets/colours.png` |
+| **Goal** | Match all 32 symbol pairs |
+| **Feedback** | Pairs, moves, accuracy, timer, progress bar; win banner at completion |
+| **Tiles** | 32 unique geometric shapes on cohesive pastel backgrounds |
 
-Each hidden tile covers a distinct colour swatch from `colours.png`. At the start, every tile is revealed briefly so you can memorise the board. Match all 32 pairs with clear stats: pairs found, moves, accuracy, timer, and progress bar.
+Each pair shares the same shape and colour theme (circle, star, hexagon, heart, and more). At the start, every tile is revealed briefly so you can memorise the board.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    SS[colours.png] --> PIL[Pillow crop]
-    PIL --> TK[ImageTk tiles]
+    GEN[Pillow draw] --> TK[ImageTk tiles]
     TK --> UI[Tkinter 8×8 grid]
     UI --> LOGIC[PalettePairsGame]
 ```
@@ -70,8 +69,6 @@ python main.py
 python_games/
 ├── main.py
 ├── requirements.txt
-├── assets/
-│   └── colours.png
 └── README.md
 ```
 
