@@ -114,12 +114,13 @@ class PalettePairsGame:
         self.stat_font = tkfont.Font(family="Segoe UI", size=12)
         self.big_font = tkfont.Font(family="Segoe UI", size=22, weight="bold")
 
-        self.reset_game_state()
+        self.reswap_job = None
+        self.tiles: list[tk.Label] = []
+        self.win_banner = None
         self._build_ui()
-        self.root.after(300, self.peek_all_cards)
 
     def reset_game_state(self) -> None:
-        if self.reswap_job:
+        if self.reswap_job is not None:
             self.root.after_cancel(self.reswap_job)
         self.deck = build_deck()
         self.matched: set[int] = set()
@@ -131,6 +132,11 @@ class PalettePairsGame:
         self.moves = 0
         self.started_at = time.time()
         self.game_over = False
+        if self.tiles:
+            for i in range(CELL_COUNT):
+                self.hide(i)
+            self._update_hud()
+            self.root.after(300, self.peek_all_cards)
 
     def tile_photo(self, cell: tuple[int, int]) -> ImageTk.PhotoImage:
         if cell not in self.photo_cache:
@@ -173,7 +179,6 @@ class PalettePairsGame:
         inner = tk.Frame(self.board, bg=COLORS["panel"])
         inner.pack()
 
-        self.tiles: list[tk.Label] = []
         for index in range(CELL_COUNT):
             tile = tk.Label(
                 inner,
@@ -196,7 +201,6 @@ class PalettePairsGame:
         self.accuracy_var = tk.StringVar()
         self.time_var = tk.StringVar()
         self.status_var = tk.StringVar()
-        self.win_banner: tk.Label | None = None
 
         for row, (label, var) in enumerate(
             [
@@ -241,6 +245,7 @@ class PalettePairsGame:
             cursor="hand2",
         ).grid(row=10, column=0, sticky="ew")
 
+        self.reset_game_state()
         self._update_hud()
         self._tick_clock()
 
@@ -369,12 +374,7 @@ class PalettePairsGame:
         if self.win_banner is not None:
             self.win_banner.destroy()
             self.win_banner = None
-
         self.reset_game_state()
-        for i in range(CELL_COUNT):
-            self.hide(i)
-        self._update_hud()
-        self.peek_all_cards()
 
 
 def main() -> None:
